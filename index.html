@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Web Serial Communication with Arduino</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 5px;
+    }
+
+    #messageInput {
+      padding: 5px;
+      font-size: 16px;
+    }
+
+    #output {
+      margin-top: 20px;
+      font-family: Courier, monospace;
+      white-space: pre-wrap;
+      border: 1px solid #ccc;
+      padding: 10px;
+      max-width: 500px;
+      word-break: break-all;
+    }
+
+    /* Style for the connected button */
+    #connectButton.connected {
+      background-color: green;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <button id="connectButton" onclick="connectToArduino()">Connect to Arduino</button>
+  <input type="text" id="messageInput" placeholder="Type your message">
+  <button onclick="sendMessage()">Send Message</button>
+  <div id="output"></div>
+
+  <script>
+    let serialPort;
+    let writer;
+    let receivedString = ''; // Variable to accumulate the received data as a string.
+
+    async function connectToArduino() {
+      try {
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 9600 });
+        const { readable, writable } = port;
+        const reader = readable.getReader();
+
+        readLoop(reader);
+        serialPort = port;
+        writer = writable.getWriter();
+        console.log('Connected to Arduino.');
+        updateConnectButton(true);
+      } catch (err) {
+        console.error('Error connecting to Arduino:', err);
+        updateConnectButton(false);
+      }
+    }
+
+    async function readLoop(reader) {
+      while (true) {
+        try {
+          const { value, done } = await reader.read();
+          if (done) break;
+
+          const receivedData = new TextDecoder().decode(value);
+          displayReceivedData(receivedData); // Display the received data in real-time.
+        } catch (err) {
+          console.error('Error reading data from Arduino:', err);
+          break;
+        }
+      }
+    }
+
+    async function sendMessage() {
+      if (!serialPort || !writer) {
+        console.error('Arduino not connected.');
+        return;
+      }
+
+      try {
+        const message = document.getElementById('messageInput').value;
+        const encoder = new TextEncoder();
+        writer.write(encoder.encode(message));
+        console.log('Message sent to Arduino:', message);
+      } catch (err) {
+        console.error('Error sending message to Arduino:', err);
+      }
+    }
+
+    function updateConnectButton(connected) {
+      const connectButton = document.getElementById('connectButton');
+      connectButton.textContent = connected ? 'Connected' : 'Connect to Arduino';
+      connectButton.classList.toggle('connected', connected);
+      connectButton.disabled = connected;
+    }
+
+    function displayReceivedData(data) {
+      console.log("data",data==" ")
+      receivedString += data;
+      if((data==" ")){
+      displayReceivedString()
+      }  // Append the received data to the accumulated string.
+    }
+
+    async function displayReceivedString() {
+      const outputElement = document.getElementById('output');
+      outputElement.innerText += receivedString + '\n';
+      receivedString = ''; // Reset the accumulated string for the next communication.
+    }
+
+   //to display the accumulated received string when the page loads.
+    document.addEventListener('DOMContentLoaded', displayReceivedString);
+  </script>
+</body>
+</html>
